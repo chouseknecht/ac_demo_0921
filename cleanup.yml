@@ -1,0 +1,19 @@
+- name: Remove the application from GKE and cleanup deployment artifacts
+  hosts: docker 
+  gather_facts: no
+  tasks:    
+   - name: Remove deployments
+     command: kubectl delete deployment django postgresql static   
+
+   - name: Remove services
+     command: kubectl delete service django postgresql static
+
+   - name: Remove role  
+     file:
+       path: /home/ec2-user/ansible-container/example/ansible/roles/example-kubernetes    
+       state: absent
+
+   - name: Remove playbook
+     file:
+       path: /home/ec2-user/ansible-container/example/ansible/shipit-kubernetes.yml    
+       state: absent

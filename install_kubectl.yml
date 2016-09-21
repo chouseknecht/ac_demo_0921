@@ -1,0 +1,6 @@
+- name: Install kubectl
+  hosts: docker
+  gather_facts: yes
+  roles: 
+    - role: role-install-gcloud
+      gcloud_archive_name: google-cloud-sdk-126.0.0-linux-x86_64.tar.gz

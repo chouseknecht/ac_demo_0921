@@ -1,0 +1,72 @@
+#- name: Provision ec2 instance
+#  hosts: localhost
+#  connection: local
+#  gather_facts: no
+#  tasks:
+#    - name: Create instance 
+#      ec2:
+#        key_name: chouse
+#        group:
+#          - docker-registry
+#        instance_type: t2.large 
+#        image: ami-2051294a
+#        instance_tags:
+#          testing: yes
+#          docker: yes
+#        wait: yes  
+#        assign_public_ip: yes
+#        vpc_subnet_id: subnet-ec9be2d1
+#        region: us-east-1
+#      register: ec2
+#
+#    - name: Debug
+#      debug: var=ec2
+#
+#    - name: Add new host
+#      add_host:
+#        name: docker
+#        ansible_host: "{{ item.public_ip }}"
+#        ansible_user: ec2-user
+#      with_items: "{{ ec2.instances }}"
+#
+#    - name: Wait for SSH to come up
+#      wait_for: host={{ item.public_ip }} port=22 delay=60 timeout=320 state=started
+#      with_items: "{{ ec2.instances }}"
+
+- name: Install docker
+  hosts: docker
+  become: yes
+  tasks:
+
+    - name: Install epel-release
+      yum: name=https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm state=present
+
+    - name: System update 
+      yum: name=* state=latest
+
+    - name: Add repo
+      yum_repository:
+        name: docker 
+        description: docker repo
+        baseurl: https://yum.dockerproject.org/repo/main/centos/7/
+        enabled: 1
+        gpgcheck: 1
+        gpgkey: https://yum.dockerproject.org/gpg
+
+    - name: Install yum packages 
+      yum: name="{{ item }}"
+      with_items:
+        - docker-engine
+        - python-pip
+        - "@Development tools"
+        - ansible
+
+    - name: Start Docker
+      service: name=docker state=started enabled=yes
+
+    - name: Create group
+      group: name=docker state=present
+  
+    - name: Add group to user
+      user: name=ec2-user group=docker append=yes 
+

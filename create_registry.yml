@@ -1,0 +1,67 @@
+- name: Provision ec2 instance
+  hosts: all 
+  connection: local
+  tasks:
+     - name: create instance
+       ec2:
+           key_name: chouseknecht
+           instance_type: t2.small
+           image: ami-2051294a
+           instance_tags:
+               testing: yes
+               docker: yes
+           wait: yes
+           region: us-east-1
+           vpc_subnet_id: subnet-ec9be2d1
+           assign_public_ip: yes
+           group:
+               - docker-registry
+       register: instance        
+
+     - debug:
+           var: instance
+
+     - name: Add new host
+       add_host:
+           name: docker_registry
+           ansible_host: "{{ item.public_ip }}"
+           ansible_user: ec2-user
+       with_items: "{{ instance.instances }}"
+
+     - name: Wait for SSH to come up
+       wait_for: host={{ item.public_ip }} port=22 delay=60 timeout=320 state=started
+       with_items: "{{ instance.instances }}"
+
+- name: Install docker
+  hosts: docker_registry
+  become: yes
+  tasks:
+
+     - name: Install packages
+       yum: name=wget 
+
+     - name: Download epel-release
+       command: "wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
+
+     - name: Install epel-release 
+       command: "rpm -Uvh epel-release-latest-7.noarch.rpm"
+     
+     - name: System update 
+       yum: name=* state=latest
+
+     - name: Enable docker yum repo
+       copy: src=docker.repo dest=/etc/yum.repos.d/docker.repo owner=root group=root mode=644
+
+     - name: Install yum packages 
+       yum: name="{{ item }}"
+       with_items:
+           - docker-engine
+           - python-pip
+           - iptables-services
+     - name: Install pip packages
+       pip: name="{{ item }}"
+       with_items:
+           - docker-py
+
+     - name: Start Docker
+       service: name=docker state=started enabled=yes

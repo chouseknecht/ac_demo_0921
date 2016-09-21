@@ -1,0 +1,54 @@
+- name: Demo
+  hosts: docker
+  gather_facts: yes
+  vars:
+    home: "{{ ansible_env.HOME }}"
+    repo_url: https://github.com/ansible/ansible-container.git 
+    repo_name: ansible-container
+    project_dir: "{{ repo_name }}/example" 
+    gke_project_name: container-demo-20160921    
+  tasks:
+
+    - name: Clone the project
+      git:
+        repo: "{{ repo_url }}"  
+        dest: "{{ home }}/{{ repo_name }}"
+
+    - name: Build the containers
+      command: ansible-container build
+      args:
+        chdir: "{{ home }}/{{ project_dir }}"
+
+    - name: Run the containers for testing
+      command: ansible-container run --detached --production   
+      args:
+        chdir: "{{ home }}/{{ project_dir }}"
+
+    - name: Wait for containers to be running
+      wait_for: port=80 delay=10 
+
+    - action: uri url=http://127.0.0.1/admin return_content=yes
+      register: webpage
+
+    - action: fail
+      when: "'Django admin' not in webpage.content"
+
+    - name: Stop the containers
+      command: ansible-container stop 
+      args:
+        chdir: "{{ home }}/{{ project_dir }}"
+
+    - name: Push the images
+      shell: ansible-container push --username _json_key  --password "$(cat /home/ec2-user/key.json)"  --push-to "https://us.gcr.io/{{ gke_project_name }}"
+      args:
+        chdir: "{{ project_dir }}" 
+
+    - name: Generate deployment artifacts
+      command: ansible-container shipit kube --pull-from "https://us.gcr.io/{{ gke_project_name }}"
+      args:
+        chdir: "{{ project_dir }}" 
+
+    - name: Deploy to GKE
+      command: ansible-playbook shipit-kubernetes.yml
+      args:
+        chdir: "{{ project_dir }}/ansible"
