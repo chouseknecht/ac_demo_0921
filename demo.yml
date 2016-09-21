@@ -1,5 +1,5 @@
 - name: Demo
-  hosts: docker
+  hosts: all 
   gather_facts: yes
   vars:
     home: "{{ ansible_env.HOME }}"

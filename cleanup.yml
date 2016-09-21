@@ -1,5 +1,5 @@
 - name: Remove the application from GKE and cleanup deployment artifacts
-  hosts: docker 
+  hosts: all 
   gather_facts: no
   tasks:    
    - name: Remove deployments
